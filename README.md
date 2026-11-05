@@ -1,16 +1,57 @@
-# coffee_shop
+# Cuppio Coffee
 
-A new Flutter project.
+A Flutter recreation of [Coffee Shop Mobile App UI/UX Design by Ali Mortuja for Dashbloom](https://dribbble.com/shots/27605633-Coffee-Shop-Mobile-App-UI-UX-Design).
 
-## Getting Started
+## Run
 
-This project is a starting point for a Flutter application.
+```sh
+flutter pub get
+flutter run
+```
 
-A few resources to get you started if this is your first Flutter project:
+Targets the existing Android and iOS projects. Layouts adapt to smaller phones and constrain the app to a comfortable width on larger displays.
 
-- [Lab: Write your first Flutter app](https://docs.flutter.dev/get-started/codelab)
-- [Cookbook: Useful Flutter samples](https://docs.flutter.dev/cookbook)
+## Experience
 
-For help getting started with Flutter development, view the
-[online documentation](https://docs.flutter.dev/), which offers tutorials,
-samples, guidance on mobile development, and a full API reference.
+- Iced-coffee onboarding with subtle animated motion.
+- Swipeable home carousel, category filters, search, and a staggered Explore catalog.
+- Favorites, rating sort, product details, four cup sizes, and quantity selection.
+- Hero transitions, animated cup scaling, favorite feedback, press feedback, and haptics.
+- Cart with size-aware line items, quantity controls, accurate totals, and empty states.
+- Editable delivery address, payment method selection, demo order confirmation, and a session profile.
+
+## MVVM structure
+
+- `lib/domain/models/`: immutable coffee and cart models, size definitions.
+- `lib/data/repositories/`: catalog repository contract and local implementation.
+- `lib/presentation/viewmodels/`: observable shop and product state, filtering, pricing, cart operations, and demo order logic.
+- `lib/presentation/views/`: screens that observe view models via `ListenableBuilder`.
+- `lib/presentation/widgets/`: shared product rendering, cards, controls, and route transitions.
+- `lib/core/theme/`: shared typography and colors.
+
+View models own business state; views own only transient presentation state such as animation and page controllers. The repository is injected into `ShopViewModel` at the app composition root. No additional runtime packages are required.
+
+## Validation
+
+```sh
+flutter analyze
+flutter test test/widget_test.dart
+```
+
+Tests cover cart merging by size, removal, totals, demo order clearing, search/category filtering, favorites, size pricing, an end-to-end widget checkout journey, and compact phone layouts.
+
+To regenerate screen previews:
+
+```sh
+flutter test test/preview_capture_test.dart
+```
+
+Screenshots are saved under `build/previews/`.
+
+## Scope and assets
+
+This is a local UI demo. Data is kept in memory and resets when the app restarts. There is no authentication, real payment processing, order submission, or delivery integration. Checkout clearly labels the demo behavior.
+
+The layout, palette and visual direction follow the linked design. The coffee artwork is AI-recreated from the reference, not original production assets, and the font is Manrope; this is not a pixel-identical export. The profile uses initials instead of the reference portrait. Product descriptions, prices, delivery fee, and catalog contents are sample data. The central navigation action opens Explore.
+
+Manrope is bundled locally under the SIL Open Font License; see `assets/fonts/OFL.txt`. Image assets are bundled locally and require no network connection.
