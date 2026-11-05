@@ -61,55 +61,83 @@ void main() {
     expect(tester.takeException(), isNull);
   });
 
-  testWidgets(
-    'dock centers tapped tab and selects hovered tab only on release',
-    (tester) async {
-      var selected = 0;
-      await tester.pumpWidget(
-        MaterialApp(
-          home: Scaffold(
-            body: StatefulBuilder(
-              builder: (context, setState) => Center(
-                child: SizedBox(
-                  width: 350,
-                  child: FloatingTabBar(
-                    selected: selected,
-                    cartCount: 3,
-                    onSelected: (value) => setState(() => selected = value),
-                  ),
+  testWidgets('dock keeps fixed slots and moves highlight on tap and drag', (
+    tester,
+  ) async {
+    var selected = 0;
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: StatefulBuilder(
+            builder: (context, setState) => Center(
+              child: SizedBox(
+                width: 350,
+                child: FloatingTabBar(
+                  selected: selected,
+                  cartCount: 3,
+                  onSelected: (value) => setState(() => selected = value),
                 ),
               ),
             ),
           ),
         ),
-      );
-      final dock = find.byKey(const ValueKey('floating-tab-dock'));
-      await tester.tap(find.text('Cart'));
+      ),
+    );
+    final dock = find.byKey(const ValueKey('floating-tab-dock'));
+    final left = tester.getTopLeft(dock).dx;
+    double slotX(int tab) => left + (tab + .5) * 70;
+    void expectFixedSlots() {
+      for (var tab = 0; tab < 5; tab++) {
+        expect(
+          tester.getCenter(find.byKey(ValueKey('tab-position-$tab'))).dx,
+          slotX(tab),
+        );
+      }
+    }
+
+    expectFixedSlots();
+    for (final tab in [3, 4, 0, 1, 2, 3]) {
+      await tester.tap(find.byKey(ValueKey('tab-position-$tab')));
       await tester.pumpAndSettle();
-      expect(selected, 3);
-      final center = find.byKey(const ValueKey('center-tab-3'));
-      expect(tester.getCenter(center).dx, tester.getCenter(dock).dx);
-      final drag = await tester.startGesture(tester.getCenter(center));
-      // With Cart centered, Profile is the next slot to the right.
-      await drag.moveBy(const Offset(70, 0));
-      await tester.pump();
-      expect(selected, 3);
-      expect(find.byKey(const ValueKey('center-tab-4')), findsOneWidget);
-      await drag.up();
-      await tester.pumpAndSettle();
-      expect(selected, 4);
+      expect(selected, tab);
+      expectFixedSlots();
       expect(
-        tester.getCenter(find.byKey(const ValueKey('center-tab-4'))).dx,
-        tester.getCenter(dock).dx,
+        tester.getCenter(find.byKey(const ValueKey('tab-highlight'))).dx,
+        slotX(tab),
       );
-      final cancel = await tester.startGesture(
-        tester.getCenter(find.byKey(const ValueKey('center-tab-4'))),
+      final shape = tester.widget<PhysicalShape>(
+        find.byKey(const ValueKey('dock-cutout')),
       );
-      await cancel.moveBy(const Offset(-70, 0));
-      await cancel.cancel();
-      await tester.pumpAndSettle();
-      expect(selected, 4);
-      expect(tester.takeException(), isNull);
-    },
-  );
+      final path = shape.clipper.getClip(const Size(350, 72));
+      expect(path.contains(Offset((tab + .5) * 70, 25)), isFalse);
+      expect(path.contains(Offset((tab + .5) * 70, 70)), isTrue);
+    }
+    final drag = await tester.startGesture(
+      tester.getCenter(find.byKey(const ValueKey('tab-position-3'))),
+    );
+    await drag.moveBy(const Offset(70, 0));
+    await tester.pumpAndSettle();
+    expect(selected, 3);
+    expectFixedSlots();
+    expect(
+      tester.getCenter(find.byKey(const ValueKey('tab-highlight'))).dx,
+      slotX(4),
+    );
+    await drag.up();
+    await tester.pumpAndSettle();
+    expect(selected, 4);
+    expectFixedSlots();
+    final cancel = await tester.startGesture(
+      tester.getCenter(find.byKey(const ValueKey('tab-position-4'))),
+    );
+    await cancel.moveBy(const Offset(-70, 0));
+    await cancel.cancel();
+    await tester.pumpAndSettle();
+    expect(selected, 4);
+    expect(
+      tester.getCenter(find.byKey(const ValueKey('tab-highlight'))).dx,
+      slotX(4),
+    );
+    expect(tester.takeException(), isNull);
+  });
 }

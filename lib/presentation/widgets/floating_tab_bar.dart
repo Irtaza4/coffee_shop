@@ -2,9 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'controls.dart';
 
-/// A floating dock. Selection always occupies the raised center position.
-/// During a drag, positions stay fixed until release so targets never move
-/// away from the finger.
+/// Fixed tab slots with a moving cutout and raised selection highlight.
 class FloatingTabBar extends StatefulWidget {
   const FloatingTabBar({
     super.key,
@@ -27,20 +25,15 @@ class _FloatingTabBarState extends State<FloatingTabBar> {
     Icons.shopping_cart_outlined,
     Icons.person_outline_rounded,
   ];
-  List<int>? _dragOrder;
-  double? _dragX;
+  bool _dragging = false;
   int? _hovered;
   bool _cancelled = false;
-  List<int> get _order =>
-      _dragOrder ??
-      List.generate(5, (slot) => (widget.selected + slot - 2 + 5) % 5);
-
   void _move(double x, double width) {
     final slot = (x / (width / 5)).floor().clamp(0, 4);
-    final next = _order[slot];
+    final next = slot;
     if (_hovered != next) HapticFeedback.selectionClick();
     setState(() {
-      _dragX = x.clamp(32, width - 32);
+      _dragging = true;
       _hovered = next;
     });
   }
@@ -48,8 +41,7 @@ class _FloatingTabBarState extends State<FloatingTabBar> {
   void _finish({bool cancelled = false}) {
     final next = _hovered;
     setState(() {
-      _dragOrder = null;
-      _dragX = null;
+      _dragging = false;
       _hovered = null;
     });
     if (!cancelled && !_cancelled && next != null && next != widget.selected) {
@@ -61,8 +53,11 @@ class _FloatingTabBarState extends State<FloatingTabBar> {
   Widget build(BuildContext context) => LayoutBuilder(
     builder: (context, constraints) {
       final width = constraints.maxWidth, cell = width / 5;
-      final order = _order;
       final active = _hovered ?? widget.selected;
+      final diameter = (cell - 4).clamp(48.0, 64.0);
+      final duration = MediaQuery.disableAnimationsOf(context)
+          ? Duration.zero
+          : Duration(milliseconds: _dragging ? 140 : 380);
       return Listener(
         onPointerDown: (_) => _cancelled = false,
         onPointerCancel: (_) => _cancelled = true,
@@ -72,93 +67,52 @@ class _FloatingTabBarState extends State<FloatingTabBar> {
           child: GestureDetector(
             key: const ValueKey('floating-tab-dock'),
             behavior: HitTestBehavior.opaque,
-            onHorizontalDragStart: (details) {
-              _dragOrder = List.of(_order);
-              _move(details.localPosition.dx, width);
-            },
+            onHorizontalDragStart: (details) =>
+                _move(details.localPosition.dx, width),
             onHorizontalDragUpdate: (details) =>
                 _move(details.localPosition.dx, width),
             onHorizontalDragEnd: (_) => _finish(),
             onHorizontalDragCancel: () => _finish(cancelled: true),
             child: SizedBox(
               height: 88,
-              child: Stack(
-                clipBehavior: Clip.none,
-                children: [
-                  Positioned(
-                    left: 0,
-                    right: 0,
-                    bottom: 0,
-                    height: 72,
-                    child: PhysicalShape(
-                      clipper: _DockClipper(),
-                      color: Colors.black,
-                      elevation: 10,
-                      shadowColor: Colors.black.withValues(alpha: .25),
-                      child: const SizedBox.expand(),
-                    ),
-                  ),
-                  for (int tab = 0; tab < 5; tab++)
-                    if (tab != widget.selected)
-                      AnimatedPositioned(
-                        key: ValueKey('tab-position-$tab'),
-                        duration: _dragOrder != null
-                            ? Duration.zero
-                            : const Duration(milliseconds: 380),
-                        curve: Curves.easeOutCubic,
-                        left: order.indexOf(tab) * cell,
+              child: TweenAnimationBuilder<double>(
+                tween: Tween<double>(
+                  begin: active.toDouble(),
+                  end: active.toDouble(),
+                ),
+                duration: duration,
+                curve: Curves.easeOutCubic,
+                builder: (context, position, _) {
+                  final center = (position + .5) * cell;
+                  return Stack(
+                    clipBehavior: Clip.none,
+                    children: [
+                      Positioned(
+                        left: 0,
+                        right: 0,
                         bottom: 0,
-                        width: cell,
                         height: 72,
-                        child: Semantics(
-                          selected: false,
-                          child: Pressable(
-                            label: labels[tab],
-                            onTap: () => widget.onSelected(tab),
-                            child: AnimatedOpacity(
-                              duration: const Duration(milliseconds: 120),
-                              opacity: _hovered == tab ? .25 : 1,
-                              child: Column(
-                                mainAxisAlignment: MainAxisAlignment.center,
-                                children: [
-                                  _icon(tab, Colors.white),
-                                  const SizedBox(height: 5),
-                                  Text(
-                                    labels[tab],
-                                    style: const TextStyle(
-                                      color: Colors.white70,
-                                      fontSize: 9,
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            ),
+                        child: PhysicalShape(
+                          key: const ValueKey('dock-cutout'),
+                          clipper: _DockClipper(
+                            center: center,
+                            halfWidth: cell * .88,
+                            depth: diameter - 1,
                           ),
+                          color: Colors.black,
+                          elevation: 10,
+                          shadowColor: Colors.black.withValues(alpha: .25),
+                          child: const SizedBox.expand(),
                         ),
                       ),
-                  AnimatedPositioned(
-                    duration: _dragOrder != null
-                        ? Duration.zero
-                        : const Duration(milliseconds: 380),
-                    curve: Curves.easeOutBack,
-                    left: (_dragX ?? width / 2) - 32,
-                    top: 0,
-                    child: Semantics(
-                      selected: true,
-                      label: labels[active],
-                      button: true,
-                      onIncrease: () =>
-                          widget.onSelected((widget.selected + 1) % 5),
-                      onDecrease: () =>
-                          widget.onSelected((widget.selected + 4) % 5),
-                      child: ExcludeSemantics(
-                        child: AnimatedScale(
-                          scale: _dragOrder == null ? 1 : 1.1,
-                          duration: const Duration(milliseconds: 180),
+                      Positioned(
+                        left: center - diameter / 2,
+                        top: 0,
+                        child: IgnorePointer(
                           child: Container(
-                            key: ValueKey('center-tab-$active'),
-                            width: 64,
-                            height: 64,
+                            key: const ValueKey('tab-highlight'),
+                            width: diameter,
+                            height: diameter,
                             decoration: BoxDecoration(
                               color: const Color(0xFF7EC9EB),
                               shape: BoxShape.circle,
@@ -170,29 +124,51 @@ class _FloatingTabBarState extends State<FloatingTabBar> {
                                 ),
                               ],
                             ),
-                            child: Column(
-                              mainAxisAlignment: MainAxisAlignment.center,
-                              children: [
-                                AnimatedSwitcher(
-                                  duration: const Duration(milliseconds: 180),
-                                  child: _icon(active, Colors.black),
-                                ),
-                                const SizedBox(height: 3),
-                                Text(
-                                  labels[active],
-                                  style: const TextStyle(
-                                    fontSize: 9,
-                                    fontWeight: FontWeight.w600,
-                                  ),
-                                ),
-                              ],
-                            ),
                           ),
                         ),
                       ),
-                    ),
-                  ),
-                ],
+                      for (int tab = 0; tab < 5; tab++)
+                        AnimatedPositioned(
+                          key: ValueKey('tab-position-$tab'),
+                          duration: duration,
+                          curve: Curves.easeOutCubic,
+                          left: tab * cell,
+                          top: tab == active ? 0 : 16,
+                          width: cell,
+                          height: tab == active ? diameter : 72,
+                          child: Semantics(
+                            selected: tab == widget.selected,
+                            child: Pressable(
+                              label: labels[tab],
+                              onTap: () => widget.onSelected(tab),
+                              child: Column(
+                                mainAxisAlignment: MainAxisAlignment.center,
+                                children: [
+                                  _icon(
+                                    tab,
+                                    tab == active ? Colors.black : Colors.white,
+                                  ),
+                                  const SizedBox(height: 4),
+                                  Text(
+                                    labels[tab],
+                                    style: TextStyle(
+                                      color: tab == active
+                                          ? Colors.black
+                                          : Colors.white70,
+                                      fontSize: 9,
+                                      fontWeight: tab == active
+                                          ? FontWeight.w600
+                                          : FontWeight.normal,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ),
+                        ),
+                    ],
+                  );
+                },
               ),
             ),
           ),
@@ -231,23 +207,47 @@ class _FloatingTabBarState extends State<FloatingTabBar> {
 }
 
 class _DockClipper extends CustomClipper<Path> {
+  const _DockClipper({
+    required this.center,
+    required this.halfWidth,
+    required this.depth,
+  });
+  final double center, halfWidth, depth;
   @override
   Path getClip(Size size) {
-    final center = size.width / 2;
-    return Path()
-      ..moveTo(36, 0)
-      ..lineTo(center - 68, 0)
-      ..cubicTo(center - 39, 0, center - 43, 63, center, 63)
-      ..cubicTo(center + 43, 63, center + 39, 0, center + 68, 0)
-      ..lineTo(size.width - 36, 0)
-      ..quadraticBezierTo(size.width, 0, size.width, 36)
-      ..quadraticBezierTo(size.width, size.height, size.width - 36, size.height)
-      ..lineTo(36, size.height)
-      ..quadraticBezierTo(0, size.height, 0, 36)
-      ..quadraticBezierTo(0, 0, 36, 0)
+    final body = Path()
+      ..addRRect(
+        RRect.fromRectAndRadius(Offset.zero & size, const Radius.circular(36)),
+      );
+    // Subtract the dip rather than intersecting the rounded corners. This also
+    // keeps the first and last tab's cutouts valid at the edges of the dock.
+    final dip = Path()
+      ..moveTo(center - halfWidth, -20)
+      ..lineTo(center - halfWidth, 0)
+      ..cubicTo(
+        center - halfWidth * .57,
+        0,
+        center - halfWidth * .63,
+        depth,
+        center,
+        depth,
+      )
+      ..cubicTo(
+        center + halfWidth * .63,
+        depth,
+        center + halfWidth * .57,
+        0,
+        center + halfWidth,
+        0,
+      )
+      ..lineTo(center + halfWidth, -20)
       ..close();
+    return Path.combine(PathOperation.difference, body, dip);
   }
 
   @override
-  bool shouldReclip(_DockClipper oldClipper) => false;
+  bool shouldReclip(_DockClipper oldClipper) =>
+      center != oldClipper.center ||
+      halfWidth != oldClipper.halfWidth ||
+      depth != oldClipper.depth;
 }
