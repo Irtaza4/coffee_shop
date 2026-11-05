@@ -3,8 +3,7 @@ import 'package:flutter/services.dart';
 import 'core/theme/app_theme.dart';
 import 'data/repositories/coffee_repository.dart';
 import 'presentation/viewmodels/shop_view_model.dart';
-import 'presentation/views/onboarding_view.dart';
-import 'presentation/views/shop_shell.dart';
+import 'presentation/views/welcome_flow.dart';
 
 void main() {
   WidgetsFlutterBinding.ensureInitialized();
@@ -47,14 +46,6 @@ class _MyAppState extends State<MyApp> {
         ),
       ),
     ),
-    home: ListenableBuilder(
-      listenable: model,
-      builder: (context, _) => AnimatedSwitcher(
-        duration: const Duration(milliseconds: 500),
-        child: model.started
-            ? ShopShell(key: const ValueKey('shop'), model: model)
-            : OnboardingView(key: const ValueKey('welcome'), model: model),
-      ),
-    ),
+    home: WelcomeFlow(model: model),
   );
 }

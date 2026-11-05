@@ -198,6 +198,7 @@ class _OnboardingViewState extends State<OnboardingView>
                     1,
                     SlideAction(
                       title: 'Get Started',
+                      resetAfterCompletion: false,
                       onTap: widget.model.start,
                     ),
                     rise: 60,

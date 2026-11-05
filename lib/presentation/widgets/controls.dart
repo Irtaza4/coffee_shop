@@ -95,10 +95,12 @@ class SlideAction extends StatefulWidget {
     required this.title,
     required this.onTap,
     this.icon = Icons.arrow_forward_ios_rounded,
+    this.resetAfterCompletion = true,
   });
   final String title;
   final VoidCallback? onTap;
   final IconData icon;
+  final bool resetAfterCompletion;
   @override
   State<SlideAction> createState() => _SlideActionState();
 }
@@ -130,7 +132,7 @@ class _SlideActionState extends State<SlideAction>
     await _progress.animateTo(1, curve: Curves.easeOutCubic);
     if (!mounted) return;
     if (widget.onTap != null) action();
-    if (!mounted) return;
+    if (!mounted || !widget.resetAfterCompletion) return;
     await _progress.animateBack(0, curve: Curves.easeOutCubic);
     if (mounted) setState(() => _committing = false);
   }
