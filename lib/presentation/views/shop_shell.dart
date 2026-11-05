@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import '../../core/theme/app_theme.dart';
 import '../viewmodels/shop_view_model.dart';
 import '../widgets/controls.dart';
+import '../widgets/floating_tab_bar.dart';
 import 'cart_view.dart';
 import 'catalog_view.dart';
 
@@ -11,182 +12,51 @@ class ShopShell extends StatelessWidget {
   @override
   Widget build(BuildContext context) => Scaffold(
     body: SafeArea(
-      child: Column(
+      child: Stack(
         children: [
-          Expanded(
-            child: AnimatedSwitcher(
-              duration: const Duration(milliseconds: 280),
-              switchInCurve: Curves.easeOutCubic,
-              child: switch (model.tab) {
-                0 => CatalogView(key: const ValueKey('home'), model: model),
-                1 => CatalogView(
-                  key: const ValueKey('favorites'),
-                  model: model,
-                  favorites: true,
-                ),
-                2 => CatalogView(
-                  key: const ValueKey('explore'),
-                  model: model,
-                  explore: true,
-                ),
-                3 => CartView(key: const ValueKey('cart'), model: model),
-                _ => _ProfileView(key: const ValueKey('profile'), model: model),
-              },
+          Positioned.fill(
+            child: Padding(
+              padding: EdgeInsets.only(
+                bottom: model.tab == 1 || model.tab == 2 ? 0 : 100,
+              ),
+              child: AnimatedSwitcher(
+                duration: const Duration(milliseconds: 280),
+                switchInCurve: Curves.easeOutCubic,
+                child: switch (model.tab) {
+                  0 => CatalogView(key: const ValueKey('home'), model: model),
+                  1 => CatalogView(
+                    key: const ValueKey('favorites'),
+                    model: model,
+                    favorites: true,
+                  ),
+                  2 => CatalogView(
+                    key: const ValueKey('explore'),
+                    model: model,
+                    explore: true,
+                  ),
+                  3 => CartView(key: const ValueKey('cart'), model: model),
+                  _ => _ProfileView(
+                    key: const ValueKey('profile'),
+                    model: model,
+                  ),
+                },
+              ),
             ),
           ),
-          Padding(
-            padding: const EdgeInsets.fromLTRB(14, 2, 14, 8),
-            child: SizedBox(
-              height: 82,
-              child: Stack(
-                alignment: Alignment.bottomCenter,
-                children: [
-                  Positioned(
-                    left: 0,
-                    right: 0,
-                    bottom: 0,
-                    height: 72,
-                    child: ClipPath(
-                      clipper: _NavClipper(),
-                      child: ColoredBox(
-                        color: Colors.black,
-                        child: Row(
-                          children: [
-                            _navItem(0, Icons.home_outlined, 'Home'),
-                            _navItem(
-                              1,
-                              Icons.favorite_border_rounded,
-                              'Favorite',
-                            ),
-                            const SizedBox(width: 76),
-                            _navItem(3, Icons.shopping_cart_outlined, 'Cart'),
-                            _navItem(
-                              4,
-                              Icons.person_outline_rounded,
-                              'Profile',
-                            ),
-                          ],
-                        ),
-                      ),
-                    ),
-                  ),
-                  Positioned(
-                    top: 0,
-                    child: Pressable(
-                      label: 'Explore',
-                      onTap: () => model.selectTab(2),
-                      child: AnimatedContainer(
-                        duration: const Duration(milliseconds: 300),
-                        width: 64,
-                        height: 64,
-                        decoration: BoxDecoration(
-                          color: model.tab == 2
-                              ? const Color(0xFF7EC9EB)
-                              : const Color(0xFF11151C),
-                          shape: BoxShape.circle,
-                          border: Border.all(color: Colors.white, width: 3),
-                        ),
-                        child: Icon(
-                          Icons.center_focus_strong_rounded,
-                          color: model.tab == 2 ? Colors.black : Colors.white,
-                          size: 25,
-                        ),
-                      ),
-                    ),
-                  ),
-                ],
-              ),
+          Positioned(
+            left: 14,
+            right: 14,
+            bottom: 10,
+            child: FloatingTabBar(
+              selected: model.tab,
+              cartCount: model.cartCount,
+              onSelected: model.selectTab,
             ),
           ),
         ],
       ),
     ),
   );
-  Widget _navItem(int index, IconData icon, String title) => Expanded(
-    child: Semantics(
-      selected: model.tab == index,
-      child: Pressable(
-        label: title,
-        onTap: () => model.selectTab(index),
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Stack(
-              clipBehavior: Clip.none,
-              children: [
-                Icon(
-                  icon,
-                  color: model.tab == index
-                      ? const Color(0xFF9CD9F1)
-                      : Colors.white,
-                  size: 23,
-                ),
-                if (index == 3 && model.cartCount > 0)
-                  Positioned(
-                    right: -9,
-                    top: -5,
-                    child: AnimatedSwitcher(
-                      duration: const Duration(milliseconds: 250),
-                      child: Container(
-                        key: ValueKey(model.cartCount),
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 4,
-                          vertical: 1,
-                        ),
-                        decoration: BoxDecoration(
-                          color: const Color(0xFF9CD9F1),
-                          borderRadius: BorderRadius.circular(9),
-                        ),
-                        child: Text(
-                          '${model.cartCount}',
-                          style: const TextStyle(
-                            fontSize: 9,
-                            color: Colors.black,
-                            fontWeight: FontWeight.bold,
-                          ),
-                        ),
-                      ),
-                    ),
-                  ),
-              ],
-            ),
-            const SizedBox(height: 5),
-            Text(
-              title,
-              style: TextStyle(
-                color: model.tab == index
-                    ? const Color(0xFF9CD9F1)
-                    : Colors.white70,
-                fontSize: 9,
-              ),
-            ),
-          ],
-        ),
-      ),
-    ),
-  );
-}
-
-class _NavClipper extends CustomClipper<Path> {
-  @override
-  Path getClip(Size size) {
-    final center = size.width / 2;
-    return Path()
-      ..moveTo(36, 0)
-      ..lineTo(center - 68, 0)
-      ..cubicTo(center - 39, 0, center - 43, 63, center, 63)
-      ..cubicTo(center + 43, 63, center + 39, 0, center + 68, 0)
-      ..lineTo(size.width - 36, 0)
-      ..quadraticBezierTo(size.width, 0, size.width, 36)
-      ..quadraticBezierTo(size.width, size.height, size.width - 36, size.height)
-      ..lineTo(36, size.height)
-      ..quadraticBezierTo(0, size.height, 0, 36)
-      ..quadraticBezierTo(0, 0, 36, 0)
-      ..close();
-  }
-
-  @override
-  bool shouldReclip(_NavClipper oldClipper) => false;
 }
 
 class _ProfileView extends StatelessWidget {

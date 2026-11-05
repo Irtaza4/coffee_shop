@@ -88,7 +88,8 @@ class RoundButton extends StatelessWidget {
   );
 }
 
-class SlideAction extends StatelessWidget {
+/// A drag-only action, with an accessible activation alternative.
+class SlideAction extends StatefulWidget {
   const SlideAction({
     super.key,
     required this.title,
@@ -99,38 +100,187 @@ class SlideAction extends StatelessWidget {
   final VoidCallback? onTap;
   final IconData icon;
   @override
-  Widget build(BuildContext context) => Pressable(
-    label: title,
-    onTap: onTap,
-    child: Container(
-      padding: const EdgeInsets.all(7),
-      decoration: BoxDecoration(
-        color: AppTheme.mist,
-        borderRadius: BorderRadius.circular(60),
-      ),
-      child: Row(
-        children: [
-          Container(
-            width: 72,
-            height: 60,
-            decoration: const BoxDecoration(
-              color: AppTheme.ink,
-              borderRadius: BorderRadius.all(Radius.circular(40)),
-            ),
-            child: Icon(icon, color: Colors.white, size: 27),
+  State<SlideAction> createState() => _SlideActionState();
+}
+
+class _SlideActionState extends State<SlideAction>
+    with SingleTickerProviderStateMixin {
+  late final AnimationController _progress = AnimationController(
+    vsync: this,
+    duration: const Duration(milliseconds: 260),
+  );
+  bool _committing = false;
+  bool _cancelled = false;
+  bool _focused = false;
+  bool get _enabled => widget.onTap != null && !_committing;
+
+  @override
+  void didUpdateWidget(SlideAction oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (widget.onTap == null || widget.title != oldWidget.title) {
+      _progress.value = 0;
+    }
+  }
+
+  Future<void> _complete() async {
+    if (!_enabled) return;
+    setState(() => _committing = true);
+    final action = widget.onTap!;
+    HapticFeedback.mediumImpact();
+    await _progress.animateTo(1, curve: Curves.easeOutCubic);
+    if (!mounted) return;
+    if (widget.onTap != null) action();
+    if (!mounted) return;
+    await _progress.animateBack(0, curve: Curves.easeOutCubic);
+    if (mounted) setState(() => _committing = false);
+  }
+
+  void _release() {
+    if (!_enabled) return;
+    if (!_cancelled && _progress.value >= .9) {
+      _complete();
+    } else {
+      _progress.animateBack(0, curve: Curves.easeOutCubic);
+    }
+  }
+
+  @override
+  void dispose() {
+    _progress.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) => Semantics(
+    button: true,
+    enabled: widget.onTap != null,
+    label: widget.title,
+    hint: 'Drag the handle to the right to continue',
+    onTap: _enabled ? _complete : null,
+    child: Listener(
+      onPointerDown: (_) => _cancelled = false,
+      onPointerCancel: (_) => _cancelled = true,
+      child: FocusableActionDetector(
+        enabled: _enabled,
+        onShowFocusHighlight: (value) => setState(() => _focused = value),
+        actions: <Type, Action<Intent>>{
+          ActivateIntent: CallbackAction<ActivateIntent>(
+            onInvoke: (_) {
+              _complete();
+              return null;
+            },
           ),
-          Expanded(
-            child: Text(
-              title,
-              textAlign: TextAlign.center,
-              style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 17),
-            ),
-          ),
-          const Icon(Icons.chevron_right, color: Color(0xFFBDC1C4)),
-          const Icon(Icons.chevron_right, color: Color(0xFF85898C)),
-          const Icon(Icons.chevron_right),
-          const SizedBox(width: 12),
-        ],
+        },
+        child: LayoutBuilder(
+          builder: (context, constraints) {
+            final travel = (constraints.maxWidth - 86).clamp(
+              0.0,
+              double.infinity,
+            );
+            return AnimatedBuilder(
+              animation: _progress,
+              builder: (context, _) => Opacity(
+                opacity: widget.onTap == null ? .45 : 1,
+                child: Container(
+                  height: 74,
+                  decoration: BoxDecoration(
+                    color: AppTheme.mist,
+                    borderRadius: BorderRadius.circular(60),
+                    border: _focused
+                        ? Border.all(color: const Color(0xFF73BFE5), width: 2)
+                        : null,
+                  ),
+                  child: Stack(
+                    children: [
+                      Positioned.fill(
+                        child: Padding(
+                          padding: const EdgeInsets.only(left: 87, right: 14),
+                          child: Opacity(
+                            opacity: (1 - _progress.value * 1.5).clamp(
+                              0.0,
+                              1.0,
+                            ),
+                            child: Row(
+                              children: [
+                                Expanded(
+                                  child: Text(
+                                    widget.title,
+                                    textAlign: TextAlign.center,
+                                    style: const TextStyle(
+                                      fontWeight: FontWeight.w600,
+                                      fontSize: 17,
+                                    ),
+                                  ),
+                                ),
+                                const SizedBox(width: 8),
+                                const Icon(
+                                  Icons.chevron_right,
+                                  size: 20,
+                                  color: Color(0xFFBDC1C4),
+                                ),
+                                const Icon(
+                                  Icons.chevron_right,
+                                  size: 20,
+                                  color: Color(0xFF85898C),
+                                ),
+                                const Icon(Icons.chevron_right, size: 20),
+                              ],
+                            ),
+                          ),
+                        ),
+                      ),
+                      Positioned(
+                        left: 7 + travel * _progress.value,
+                        top: 7,
+                        child: GestureDetector(
+                          key: ValueKey('slide-handle-${widget.title}'),
+                          behavior: HitTestBehavior.opaque,
+                          onHorizontalDragStart: _enabled
+                              ? (_) {
+                                  _progress.stop();
+                                  HapticFeedback.selectionClick();
+                                }
+                              : null,
+                          onHorizontalDragUpdate: _enabled && travel > 0
+                              ? (details) {
+                                  _progress.value += details.delta.dx / travel;
+                                }
+                              : null,
+                          onHorizontalDragEnd: _enabled
+                              ? (_) => _release()
+                              : null,
+                          onHorizontalDragCancel: _enabled
+                              ? () => _progress.animateBack(0)
+                              : null,
+                          child: Container(
+                            width: 72,
+                            height: 60,
+                            decoration: BoxDecoration(
+                              color: AppTheme.ink,
+                              borderRadius: BorderRadius.circular(40),
+                              boxShadow: [
+                                BoxShadow(
+                                  color: Colors.black.withValues(alpha: .12),
+                                  blurRadius: 8,
+                                  offset: const Offset(0, 3),
+                                ),
+                              ],
+                            ),
+                            child: Icon(
+                              _committing ? Icons.check_rounded : widget.icon,
+                              color: Colors.white,
+                              size: 27,
+                            ),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            );
+          },
+        ),
       ),
     ),
   );

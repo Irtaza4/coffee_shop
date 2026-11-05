@@ -48,7 +48,7 @@ void main() {
     }
 
     await capture('welcome');
-    await tester.tap(find.text('Get Started'));
+    await slide(tester, 'Get Started');
     await tester.pumpAndSettle();
     await capture('home');
     await tester.tap(find.text('Explore all'));
@@ -57,13 +57,19 @@ void main() {
     await tester.tap(find.text('Brew\nNest'));
     await tester.pumpAndSettle();
     await capture('details');
-    await tester.tap(find.text('Add To Cart'));
+    await slide(tester, 'Add To Cart');
     await tester.pumpAndSettle();
     await tester.tap(find.text('VIEW CART'));
     await tester.pumpAndSettle();
     await capture('cart');
-    await tester.tap(find.text('Checkout'));
+    await slide(tester, 'Checkout');
     await tester.pumpAndSettle();
     await capture('checkout');
   });
+}
+
+Future<void> slide(WidgetTester tester, String title) async {
+  final handle = find.byKey(ValueKey('slide-handle-$title'));
+  await tester.drag(handle, const Offset(600, 0));
+  await tester.pumpAndSettle();
 }

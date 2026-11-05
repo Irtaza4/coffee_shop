@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:coffee_shop/main.dart';
@@ -63,7 +64,7 @@ void main() {
     addTearDown(tester.view.resetDevicePixelRatio);
     await tester.pumpWidget(const MyApp());
     await tester.pump(const Duration(seconds: 1));
-    await tester.tap(find.text('Get Started'));
+    await slide(tester, 'Get Started');
     await tester.pumpAndSettle();
     expect(tester.takeException(), isNull);
     expect(find.text('Hello,\nJenny Wilson'), findsOneWidget);
@@ -75,17 +76,17 @@ void main() {
     await tester.pumpAndSettle();
     expect(tester.takeException(), isNull);
     expect(find.text('591ml'), findsOneWidget);
-    await tester.tap(find.text('Add To Cart'));
+    await slide(tester, 'Add To Cart');
     await tester.pumpAndSettle();
     expect(tester.takeException(), isNull);
     await tester.tap(find.text('VIEW CART'));
     await tester.pumpAndSettle();
     expect(tester.takeException(), isNull);
     expect(find.text('Brew Nest'), findsOneWidget);
-    await tester.tap(find.text('Checkout'));
+    await slide(tester, 'Checkout');
     await tester.pumpAndSettle();
     expect(tester.takeException(), isNull);
-    await tester.tap(find.text('Place Demo Order'));
+    await slide(tester, 'Place Demo Order');
     await tester.pumpAndSettle();
     expect(tester.takeException(), isNull);
     expect(find.text('Happiness is brewing.'), findsOneWidget);
@@ -101,17 +102,23 @@ void main() {
     await tester.pumpWidget(const MyApp());
     await tester.pump(const Duration(milliseconds: 300));
     expect(tester.takeException(), isNull);
-    await tester.tap(find.text('Get Started'));
+    await slide(tester, 'Get Started');
     await tester.pumpAndSettle();
     expect(tester.takeException(), isNull);
     await tester.tap(find.text('Explore all'));
     await tester.pumpAndSettle();
     expect(tester.takeException(), isNull);
-    expect(find.text('Explore'), findsOneWidget);
+    expect(find.text('Explore'), findsNWidgets(2));
     expect(tester.takeException(), isNull);
     await tester.tap(find.text('Brew\nNest'));
     await tester.pumpAndSettle();
     expect(tester.takeException(), isNull);
     expect(tester.takeException(), isNull);
   });
+}
+
+Future<void> slide(WidgetTester tester, String title) async {
+  final handle = find.byKey(ValueKey('slide-handle-$title'));
+  await tester.drag(handle, const Offset(600, 0));
+  await tester.pumpAndSettle();
 }

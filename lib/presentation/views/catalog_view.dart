@@ -261,7 +261,7 @@ class _CatalogViewState extends State<CatalogView> {
   }
 
   Widget _grid(List<Coffee> items) => SingleChildScrollView(
-    padding: const EdgeInsets.fromLTRB(22, 0, 22, 18),
+    padding: const EdgeInsets.fromLTRB(22, 0, 22, 112),
     child: Row(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: List.generate(
