@@ -64,6 +64,7 @@ void main() {
     addTearDown(tester.view.resetDevicePixelRatio);
     await tester.pumpWidget(const MyApp());
     await tester.pump(const Duration(seconds: 1));
+    await tester.pump(const Duration(seconds: 2));
     await slide(tester, 'Get Started');
     await tester.pumpAndSettle();
     expect(tester.takeException(), isNull);
@@ -102,6 +103,7 @@ void main() {
     await tester.pumpWidget(const MyApp());
     await tester.pump(const Duration(milliseconds: 300));
     expect(tester.takeException(), isNull);
+    await tester.pump(const Duration(seconds: 2));
     await slide(tester, 'Get Started');
     await tester.pumpAndSettle();
     expect(tester.takeException(), isNull);
